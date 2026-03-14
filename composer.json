@@ -106,9 +106,11 @@
     },
     "minimum-stability": "dev",
     "prefer-stable": true,
-    "repositories": [{
-        "name": "flux-pro",
-        "type": "path",
-        "url": "packages/FluxPro - v2.13.0/flux-pro"
-    }]
+    "repositories": [
+        {
+            "name": "flux-pro",
+            "type": "path",
+            "url": "packages/FluxPro - v2.13.0/flux-pro"
+        }
+    ]
 }
