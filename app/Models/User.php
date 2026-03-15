@@ -2,34 +2,35 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
 use Laravel\Fortify\TwoFactorAuthenticatable;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, TwoFactorAuthenticatable;
+    // Tambah HasRoles dari Spatie untuk manajemen role & permission
+    use HasFactory, Notifiable, TwoFactorAuthenticatable, HasRoles;
 
     /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
+     * Kolom yang boleh diisi secara mass assignment.
+     * Tambah korporasi_id dan status dari kolom baru SISKO.
      */
     protected $fillable = [
         'name',
         'email',
         'password',
+        'korporasi_id', // untuk multi-tenancy
+        'status',       // aktif/nonaktif — kontrol akses login
     ];
 
     /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
+     * Kolom yang disembunyikan saat model dikonversi ke array/JSON.
      */
     protected $hidden = [
         'password',
@@ -39,27 +40,51 @@ class User extends Authenticatable
     ];
 
     /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
+     * Casting otomatis untuk kolom tertentu.
      */
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'password'          => 'hashed',
         ];
     }
 
+    // =========================================================
+    // HELPER METHODS
+    // =========================================================
+
     /**
-     * Get the user's initials
+     * Ambil inisial nama user — dipakai untuk avatar.
+     * Contoh: "Muhammad Reedho" → "MR"
      */
     public function initials(): string
     {
         return Str::of($this->name)
             ->explode(' ')
             ->take(2)
-            ->map(fn ($word) => Str::substr($word, 0, 1))
+            ->map(fn($word) => Str::substr($word, 0, 1))
             ->implode('');
+    }
+
+    /**
+     * Cek apakah akun user ini aktif.
+     * Dipakai di login component sebelum proses login diizinkan.
+     */
+    public function isAktif(): bool
+    {
+        return $this->status === 'aktif';
+    }
+
+    // =========================================================
+    // RELASI
+    // =========================================================
+
+    /**
+     * Semua catatan audit trail yang dibuat oleh user ini.
+     */
+    public function auditTrails(): HasMany
+    {
+        return $this->hasMany(AuditTrail::class);
     }
 }

@@ -1,14 +1,17 @@
 # SISKO — Dokumen Development
+
 ## Panduan Coding & Build Order
-*Versi 1.0 — Maret 2026*
+
+_Versi 1.1 — Maret 2026_
 
 ---
 
-## Tentang Dokumen Ini
+## 1. Tentang Dokumen Ini
 
 Dokumen ini adalah **panduan coding SISKO** — bukan dokumen bisnis. Isinya adalah peta kerja teknis yang menentukan urutan coding berdasarkan dependency antar modul.
 
 **Prinsip utama:**
+
 - Coding dilakukan dari sudut pandang **Super Admin** (akses penuh)
 - Setiap modul di-coding lengkap beserta **permission per role**
 - Ketika seluruh modul Super Admin selesai → **semua role otomatis terkover**
@@ -28,7 +31,19 @@ Dokumen ini adalah **panduan coding SISKO** — bukan dokumen bisnis. Isinya ada
 
 ---
 
-## Alur Coding per Modul
+## 2. Metode Kerja
+
+Cara kita bekerja bersama saat coding SISKO:
+
+- **Learning by doing** — langsung coding, bertahap sangat kecil per langkah
+- **Satu command, jalankan, cek hasilnya, baru lanjut** — tidak loncat-loncat
+- **Setiap ada error, selesaikan dulu** sebelum lanjut ke langkah berikutnya
+- **Tidak mengulang langkah yang sudah beres**
+- **Komentar kode wajib dalam Bahasa Indonesia** yang detail
+
+---
+
+## 3. Alur Coding per Modul
 
 Setiap modul dikerjakan dengan urutan berikut:
 
@@ -43,7 +58,7 @@ Setiap modul dikerjakan dengan urutan berikut:
 
 ---
 
-## Mind Map Super Admin — Build Order & Dependency Map
+## 4. Mind Map Super Admin — Build Order & Dependency Map
 
 > Urutan ini adalah urutan coding. Modul di atas harus selesai sebelum modul di bawahnya bisa dikerjakan.
 
@@ -58,7 +73,7 @@ SISKO
 │   └── PostgreSQL 16
 │
 ├── 1. AUTH & AKSES
-│   ├── Login & Logout
+│   ├── Login & Logout ✅ SELESAI
 │   ├── Lupa Password (via email)
 │   ├── Ganti Password
 │   ├── Role Management
@@ -158,23 +173,26 @@ SISKO
 
 ---
 
-## Catatan UI — Navigasi Multi-level
+## 5. Catatan UI — Navigasi Multi-level
 
 Flux UI Pro sidebar mendukung maksimal **2 level** secara native:
+
 - **Level 1** → `flux:sidebar.group` (dengan icon & heading)
 - **Level 2** → `flux:sidebar.item` (menu item)
 
 Untuk konten yang membutuhkan **level 3**, gunakan:
+
 - **Tab** di dalam halaman konten
 - **Sub-header** di area konten
 
 ---
 
-## Checklist Testing per Role
+## 6. Checklist Testing per Role
 
 > Setelah semua modul Super Admin selesai, lakukan testing menggunakan checklist berikut per role.
 
-### Direktur Utama
+### 6.1 Direktur Utama
+
 - [ ] Bisa lihat semua proyek
 - [ ] Bisa approve proyek (Draft → Aktif)
 - [ ] Bisa approve RAP
@@ -184,7 +202,8 @@ Untuk konten yang membutuhkan **level 3**, gunakan:
 - [ ] Bisa assign tim proyek
 - [ ] Dashboard menampilkan widget yang sesuai
 
-### Direktur Operasional
+### 6.2 Direktur Operasional
+
 - [ ] Hanya bisa lihat proyek yang di-assign
 - [ ] Bisa approve PR proyek ter-assign
 - [ ] Bisa review progress lapangan
@@ -192,7 +211,8 @@ Untuk konten yang membutuhkan **level 3**, gunakan:
 - [ ] Tidak bisa lihat laporan keuangan korporasi
 - [ ] Dashboard tidak menampilkan nilai keuangan
 
-### Sekretaris
+### 6.3 Sekretaris
+
 - [ ] Bisa lihat semua proyek
 - [ ] Bisa input data proyek (inisiasi & pelengkapan)
 - [ ] Bisa assign tim proyek
@@ -200,7 +220,8 @@ Untuk konten yang membutuhkan **level 3**, gunakan:
 - [ ] Tidak bisa approve proyek
 - [ ] Dashboard sesuai hak akses
 
-### Admin
+### 6.4 Admin
+
 - [ ] Hanya bisa lihat proyek yang di-assign
 - [ ] Bisa buat PR
 - [ ] Bisa input petty cash
@@ -208,7 +229,8 @@ Untuk konten yang membutuhkan **level 3**, gunakan:
 - [ ] Tidak bisa lihat nilai keuangan apapun
 - [ ] Dashboard tidak menampilkan nilai keuangan
 
-### Pengawas Lapangan
+### 6.5 Pengawas Lapangan
+
 - [ ] Hanya bisa lihat proyek yang di-assign
 - [ ] Bisa input progress lapangan + foto
 - [ ] Bisa buat PR
@@ -218,4 +240,4 @@ Untuk konten yang membutuhkan **level 3**, gunakan:
 
 ---
 
-*— SISKO-development.md v1.0 —*
+_— SISKO-development.md v1.1 —_
