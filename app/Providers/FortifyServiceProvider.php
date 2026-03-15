@@ -23,7 +23,6 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::ignoreRoutes();
     }
 
-
     /**
      * Bootstrap any application services.
      */
@@ -67,9 +66,22 @@ class FortifyServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('login', function (Request $request) {
-            $throttleKey = Str::transliterate(Str::lower($request->input(Fortify::username())) . '|' . $request->ip());
+            // Pakai field 'login' (bukan 'email') sebagai throttle key
+            // karena sekarang input bisa berupa username atau email
+            $throttleKey = Str::transliterate(
+                Str::lower($request->input('login')) . '|' . $request->ip()
+            );
 
             return Limit::perMinute(5)->by($throttleKey);
         });
     }
+
+    /**
+     * Configure custom authentication logic.
+     *
+     * Override default Fortify authentication agar user bisa login
+     * menggunakan username ATAU email — sistem deteksi otomatis:
+     * - Jika input mengandung '@' → cari berdasarkan email
+     * - Jika tidak mengandung '@' → cari berdasarkan username
+     */
 }

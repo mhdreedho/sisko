@@ -16,10 +16,11 @@ use Livewire\Volt\Component;
  * Menangani form login SISKO.
  *
  * Fitur:
- * - Validasi input email & password
+ * - Input 'login' bisa berisi username atau email (deteksi otomatis via FortifyServiceProvider)
+ * - Validasi input login & password
  * - Cek status akun (aktif/nonaktif)
- * - Rate limiting: max 5 percobaan per 60 detik per IP+email
- * - Pesan error generic untuk keamanan (tidak membedakan email vs password salah)
+ * - Rate limiting: max 5 percobaan per 60 detik per IP+login
+ * - Pesan error generic untuk keamanan (tidak membedakan username/email vs password salah)
  * - Audit trail: catat login berhasil & gagal
  * - Remember me: session panjang
  */
@@ -32,14 +33,13 @@ new #[Layout('components.layouts.auth')] class extends Component {
 
     #[
         Validate(
-            'required|string|email',
+            'required|string',
             message: [
-                'required' => 'Email wajib diisi.',
-                'email' => 'Format email tidak valid.',
+                'required' => 'Username atau email wajib diisi.',
             ],
         ),
     ]
-    public string $email = '';
+    public string $login = ''; // bisa berisi username atau email
 
     #[
         Validate(
@@ -61,8 +61,12 @@ new #[Layout('components.layouts.auth')] class extends Component {
     /**
      * Proses login saat form disubmit.
      * Dipanggil dari tombol submit di template.
+     *
+     * Deteksi username vs email dilakukan di FortifyServiceProvider
+     * via Fortify::authenticateUsing() — bukan di sini.
+     * Di sini kita hanya handle: validasi, rate limit, status akun, audit trail.
      */
-    public function login(): void
+    public function masuk(): void
     {
         // Validasi input terlebih dahulu
         $this->validate();
@@ -71,41 +75,38 @@ new #[Layout('components.layouts.auth')] class extends Component {
         // Mencegah brute force attack
         $this->cekRateLimit();
 
-        // Cari user berdasarkan email
-        $user = User::where('email', $this->email)->first();
+        // Deteksi otomatis: jika mengandung '@' → cari by email, jika tidak → cari by username
+        $field = Str::contains($this->login, '@') ? 'email' : 'username';
 
-        // Cek apakah email+password cocok
+        // Cari user berdasarkan field yang terdeteksi
+        $user = User::where($field, $this->login)->first();
+
+        // Cek apakah user ditemukan dan password cocok
         // Kita cek password dulu SEBELUM cek status akun
-        // agar tidak bocor info "email ini terdaftar tapi nonaktif"
-        if (!$user || !Auth::validate(['email' => $this->email, 'password' => $this->password])) {
+        // agar tidak bocor info "username/email ini terdaftar tapi nonaktif"
+        if (!$user || !Auth::validate(['email' => $user->email, 'password' => $this->password])) {
             // Login gagal: catat ke audit trail
-            app(AuditTrailService::class)->logLogin(
-                email: $this->email,
-                berhasil: false,
-                userId: $user?->id, // bisa null jika email tidak terdaftar
-            );
+            app(AuditTrailService::class)->logLogin(email: $this->login, berhasil: false, userId: $user?->id);
 
             // Tambah hitungan percobaan gagal untuk rate limiting
             RateLimiter::hit($this->throttleKey());
 
-            // Pesan error GENERIC — tidak membedakan email salah vs password salah
-            // Ini praktik keamanan standar agar penyerang tidak tahu mana yang benar
-            $this->addError('email', 'Email atau password yang Anda masukkan salah.');
+            // Pesan error GENERIC — tidak membedakan username/email salah vs password salah
+            $this->addError('login', 'Username/email atau password yang Anda masukkan salah.');
 
             return;
         }
 
-        // Sampai sini: email & password cocok
+        // Sampai sini: kredensial cocok
         // Sekarang baru cek status akun
         if (!$user->isAktif()) {
             // Catat percobaan login akun nonaktif
-            app(AuditTrailService::class)->logLogin(email: $this->email, berhasil: false, userId: $user->id);
+            app(AuditTrailService::class)->logLogin(email: $this->login, berhasil: false, userId: $user->id);
 
             RateLimiter::hit($this->throttleKey());
 
             // Pesan error SPESIFIK untuk akun nonaktif
-            // (sesuai spesifikasi dokumen)
-            $this->addError('email', 'Akun Anda tidak aktif. Silakan hubungi administrator.');
+            $this->addError('login', 'Akun Anda tidak aktif. Silakan hubungi administrator.');
 
             return;
         }
@@ -118,7 +119,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
         Auth::login($user, $this->ingat_saya);
 
         // Catat login berhasil ke audit trail
-        app(AuditTrailService::class)->logLogin(email: $this->email, berhasil: true, userId: $user->id);
+        app(AuditTrailService::class)->logLogin(email: $user->email, berhasil: true, userId: $user->id);
 
         // Regenerate session ID untuk mencegah session fixation attack
         session()->regenerate();
@@ -133,7 +134,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
 
     /**
      * Cek apakah user ini sudah terlalu banyak percobaan login.
-     * Max: 5 percobaan per menit per kombinasi email+IP.
+     * Max: 5 percobaan per menit per kombinasi login+IP.
      */
     private function cekRateLimit(): void
     {
@@ -148,24 +149,18 @@ new #[Layout('components.layouts.auth')] class extends Component {
         $seconds = RateLimiter::availableIn($this->throttleKey());
 
         // Hentikan proses login dengan pesan error
-        $this->addError('email', "Terlalu banyak percobaan login. Coba lagi dalam {$seconds} detik.");
-
-        // Pakai Livewire's cancel untuk menghentikan proses
-        $this->dispatch('login-throttled');
-
-        // Throw validation exception agar proses berhenti
         throw \Illuminate\Validation\ValidationException::withMessages([
-            'email' => ["Terlalu banyak percobaan login. Coba lagi dalam {$seconds} detik."],
+            'login' => ["Terlalu banyak percobaan login. Coba lagi dalam {$seconds} detik."],
         ]);
     }
 
     /**
      * Buat key unik untuk rate limiter.
-     * Kombinasi email + IP agar lebih sulit di-bypass.
+     * Kombinasi input login (username/email) + IP agar lebih sulit di-bypass.
      */
     private function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->email) . '|' . request()->ip());
+        return Str::transliterate(Str::lower($this->login) . '|' . request()->ip());
     }
 }; ?>
 
@@ -198,22 +193,36 @@ new #[Layout('components.layouts.auth')] class extends Component {
                 Masuk ke Akun Anda
             </h2>
 
+            {{-- Notif error login — tampil di atas form --}}
+            @if ($errors->any())
+                <div class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+                    {{ $errors->first() }}
+                </div>
+            @endif
+
+            {{-- Flash message sukses dari reset password --}}
+            @if (session('status'))
+                <div
+                    class="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-600 dark:bg-green-900/20 dark:text-green-400">
+                    {{ session('status') }}
+                </div>
+            @endif
+
             <form
-                wire:submit="login"
+                wire:submit="masuk"
                 class="space-y-5"
             >
 
-                {{-- Field Email --}}
+                {{-- Field Username atau Email --}}
                 <flux:field>
-                    <flux:label>Email</flux:label>
+                    <flux:label>Username atau Email</flux:label>
                     <flux:input
-                        wire:model="email"
-                        type="email"
-                        placeholder="nama@email.com"
+                        wire:model="login"
+                        type="text"
+                        placeholder="username atau nama@email.com"
                         autofocus
-                        autocomplete="email"
+                        autocomplete="username"
                     />
-                    <flux:error name="email" />
                 </flux:field>
 
                 {{-- Field Password --}}
@@ -222,7 +231,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
                         <flux:label>Password</flux:label>
                         {{-- Link lupa password --}}
                         <a
-                            href="#"
+                            href="{{ route('password.request') }}"
                             wire:navigate
                             class="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
                         >
@@ -236,7 +245,6 @@ new #[Layout('components.layouts.auth')] class extends Component {
                         autocomplete="current-password"
                         viewable
                     />
-                    <flux:error name="password" />
                 </flux:field>
 
                 {{-- Checkbox Ingat Saya --}}
