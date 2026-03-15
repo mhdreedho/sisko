@@ -26,7 +26,7 @@ Gunakan MCP filesystem — bukan GitHub MCP. Perintah di awal sesi:
 0. FONDASI                    ✅ SELESAI
 1. AUTH & AKSES
    1.1 Login & Logout          ✅ SELESAI
-   1.2 Lupa Password           🔲 BERIKUTNYA
+   1.2 Lupa Password           ✅ SELESAI
    1.3 Ganti Password          🔲 Belum
    1.4 Role Management         🔲 Belum
    1.5 Permission Management   🔲 Belum
@@ -48,11 +48,15 @@ Ditemukan saat coding, berlaku untuk semua modul ke depan:
 
 - **Ekstensi Livewire Volt** → disimpan sebagai `.blade.php`, bukan `.wire.php`. Penulisan `.wire.php` hanya ada di dokumen spesifikasi
 - **Flux UI Pro directive** → gunakan `@fluxAppearance`, BUKAN `@fluxStyles`
-- **`Fortify::ignoreRoutes()`** → wajib dipanggil di `register()`, BUKAN `boot()`. Fortify mendaftarkan routes-nya di `boot()`, jadi harus di-ignore sebelum itu
+- **`Fortify::ignoreRoutes()`** → wajib dipanggil di `register()` di `FortifyServiceProvider`, BUKAN `AppServiceProvider` dan BUKAN `boot()`
 - **AuditTrail via tinker** → method `latest()` tidak bekerja karena tidak ada kolom `updated_at`. Gunakan `::count()` atau cek langsung di DBeaver
 - **Layout auth** → `resources/views/components/layouts/auth.blade.php`
 - **Password policy** → production: min 12 karakter + mixed case + angka + simbol. Development: null (tidak ada batasan). Diset di `AppServiceProvider`
 - **MCP filesystem path** → gunakan `\\wsl.localhost\Ubuntu\...` bukan `/home/...` saat akses file WSL dari Claude Desktop
+- **Livewire method vs property** → jangan beri nama method sama dengan nama property. Contoh: property `$login` + method `login()` = bentrok. Solusi: ganti nama method, misal `masuk()`
+- **GitHub Actions** → workflow `tests.yml` & `lint.yml` sudah dinonaktifkan untuk branch `main` & `master`. Hanya aktif di branch `develop` & `workos`
+- **Email** → `MAIL_MAILER=log` (development). Belum setup SMTP sungguhan. Rencana: Mailpit untuk development, Resend/Brevo untuk production saat sudah punya domain
+- **Pembagian kerja** → perubahan kecil (1-3 baris) dikerjakan sendiri oleh user di VS Code. File baru / perubahan besar dikerjakan Claude. Setiap mau baca/tulis file, Claude konfirmasi dulu ke user
 
 ---
 
@@ -60,8 +64,7 @@ Ditemukan saat coding, berlaku untuk semua modul ke depan:
 
 ### Modul 1.1 — Login & Logout ✅
 
-**Files yang dibuat:**
-
+**Files yang dibuat/diubah:**
 ```
 app/Models/User.php
 app/Models/AuditTrail.php
@@ -77,33 +80,50 @@ routes/auth.php
 **Keputusan arsitektur:**
 - Fortify dipakai sebagai infrastruktur keamanan (token, rate limiting, dll)
 - Livewire handle UI + logic bisnis (audit trail, cek status akun)
-- `Fortify::ignoreRoutes()` dipanggil di `AppServiceProvider::register()`
+- `Fortify::ignoreRoutes()` dipanggil di `FortifyServiceProvider::register()`
 
 **Data Super Admin:**
-- Nama: `Ridho` | Email: `mhdreedho@gmail.com` | Password: `admin` | ID: `1`
-
-**Yang ditunda ke modul berikutnya:**
-- Link "Lupa password?" masih `href="#"` → akan diisi `route('password.request')` saat 1.2 selesai
-- `AuditTrail` model & service sudah ada, belum full dipakai → akan diperluas di modul 1.6
+- Nama: `Ridho` | Email: `mhdreedho@gmail.com` | Username: `mhdreedho` | Password: `admin` | ID: `1`
 
 ---
 
-## LANGKAH BERIKUTNYA — Modul 1.2 Lupa Password
+### Modul 1.2 — Lupa Password ✅
 
-Urutan pengerjaan:
-1. Tambah `Fortify::ignoreRoutes()` di `AppServiceProvider::register()`
-2. Uncomment placeholder routes di `routes/auth.php`
-3. Update link "Lupa password?" di login → `route('password.request')`
-4. Buat Livewire component `auth.forgot-password`
-5. Buat Livewire component `auth.reset-password`
-6. Buat `app/Notifications/ResetPasswordNotification.php`
-7. Override `sendPasswordResetNotification()` di `User` model
-8. Test end-to-end
-9. Commit
+**Files yang dibuat/diubah:**
+```
+routes/auth.php                                          ← uncomment routes forgot & reset password
+resources/views/livewire/auth/forgot-password.blade.php ← baru
+resources/views/livewire/auth/reset-password.blade.php  ← baru
+app/Providers/FortifyServiceProvider.php                ← update rate limiter key
+database/migrations/2026_03_15_000001_add_username_to_users_table.php ← baru
+.github/workflows/tests.yml                             ← nonaktifkan trigger main & master
+.github/workflows/lint.yml                              ← nonaktifkan trigger main & master
+```
 
-**Catatan penting:**
-- `Features::resetPasswords()` di `config/fortify.php` sudah aktif ✅
-- WAJIB tambah `ignoreRoutes()` agar routes Fortify tidak bentrok dengan routes Livewire
+**Fitur yang diimplementasi:**
+- Login bisa pakai **username ATAU email** (deteksi otomatis via `@`)
+- Lupa password support input username atau email
+- Jika input username → tampilkan email tersensor (contoh: `m*******o@gmail.com`)
+- Jika input email → tampilkan email asli tanpa sensor
+- Jika username/email tidak terdaftar → pesan error tegas (bukan ambigu)
+- Token expired/sudah dipakai → halaman "Link Tidak Valid" tampil langsung saat buka URL
+- Flash message sukses di halaman login setelah reset berhasil
+- Notif gagal login tampil di atas form (bukan di bawah field input)
+
+**Keputusan arsitektur:**
+- Logic login sepenuhnya di `login.blade.php` (Livewire) — tidak pakai `Fortify::authenticateUsing()`
+- Method login di Livewire diberi nama `masuk()` bukan `login()` — menghindari bentrok dengan property `$login`
+- Email masih pakai `MAIL_MAILER=log` — link reset diambil dari log file saat development
+
+---
+
+## AGENDA SESI BERIKUTNYA
+
+> ⚠️ Sesi berikutnya BUKAN lanjut modul 1.3 — tapi **benahi UI halaman auth** dulu:
+> - Ganti placeholder logo "S" dengan logo/branding SISKO yang proper
+> - Review tampilan halaman login, forgot-password, reset-password
+> - Perbaikan UI lain yang diperlukan
+> Setelah UI beres → lanjut modul 1.3 Ganti Password
 
 ---
 
@@ -115,3 +135,4 @@ Urutan pengerjaan:
 | Maret 2026 | Modul 1.1 Login & Logout selesai |
 | Maret 2026 | Pisahkan catatan implementasi ke SISKO-progress.md |
 | Maret 2026 | Setup MCP filesystem — akses langsung ke file WSL dari Claude Desktop |
+| Maret 2026 | Modul 1.2 Lupa Password selesai + fitur username login |
