@@ -1,35 +1,36 @@
 # SISKO — Dokumen Development Detail
 
-## Spesifikasi Teknis Lengkap per Modul (Versi C)
+## Spesifikasi Teknis Lengkap per Modul
 
-_Versi 1.1 — Maret 2026_
+_Versi 1.2 — Maret 2026_
 
-> **Dokumen ini adalah referensi teknis pribadi.**
-> Berisi detail lengkap setiap modul: tabel database, model, komponen Livewire,
-> routes, permission, business rules, dan edge cases.
-> Gunakan ini sebagai blueprint saat coding atau saat lost tracking.
+> **Dokumen ini adalah referensi teknis blueprint per modul.**
+> Berisi: tabel database, model, komponen Livewire, routes, permission, business rules, edge cases.
+> Gunakan sebagai acuan saat coding atau saat butuh re-orientasi.
+>
+> **Status progres & catatan implementasi** → lihat `SISKO-progress.md` (di lokal WSL, baca via MCP filesystem).
 
 ---
 
-# MODUL 0 — FONDASI ✅ SELESAI
+# MODUL 0 — FONDASI
 
-| Item              | Detail                                   |
-| ----------------- | ---------------------------------------- |
-| Laravel           | 12.x                                     |
-| Livewire          | 4.x (Single-file components `.wire.php`) |
-| Flux UI Pro       | 2.13.0 (local path via Composer)         |
-| Spatie Permission | latest                                   |
-| PostgreSQL        | 16.x                                     |
-| Vite              | 7.x                                      |
-| Tailwind CSS      | 4.x                                      |
-| Pest              | latest                                   |
-| Laravel Boost     | installed (Claude Code configured)       |
+| Item              | Detail                                    |
+| ----------------- | ----------------------------------------- |
+| Laravel           | 12.x                                      |
+| Livewire          | 4.x (Single-file components `.blade.php`) |
+| Flux UI Pro       | 2.13.0 (local path via Composer)          |
+| Spatie Permission | latest                                    |
+| PostgreSQL        | 16.x                                      |
+| Vite              | 7.x                                       |
+| Tailwind CSS      | 4.x                                       |
+| Pest              | latest                                    |
+| Laravel Boost     | installed (Claude Code configured)        |
 
 ---
 
 # MODUL 1 — AUTH & AKSES
 
-## 1.1 Login & Logout ✅ SELESAI
+## 1.1 Login & Logout
 
 **Tabel:** `users` (sudah ada dari migration Laravel default)
 
@@ -42,11 +43,11 @@ created_at, updated_at, korporasi_id (tambahan), status (aktif/nonaktif)
 
 ```
 app/Models/User.php
+app/Models/AuditTrail.php
+app/Services/AuditTrailService.php
 resources/views/livewire/auth/login.blade.php
 resources/views/livewire/auth/logout.blade.php
 resources/views/components/layouts/auth.blade.php
-app/Models/AuditTrail.php
-app/Services/AuditTrailService.php
 database/migrations/2026_03_14_234438_add_korporasi_status_to_users_table.php
 database/migrations/2026_03_14_234850_create_audit_trails_table.php
 routes/auth.php
@@ -55,9 +56,9 @@ routes/auth.php
 **Routes:**
 
 ```
-GET  /login          → Auth/Login component
-POST /login          → proses login
-POST /logout         → proses logout
+GET  /login   → Auth/Login component
+POST /login   → proses login
+POST /logout  → proses logout
 ```
 
 **Middleware:**
@@ -81,35 +82,6 @@ auth   → semua halaman yang butuh login
 
 **Audit Trail:** Catat setiap login berhasil & gagal (user_id/email, IP, timestamp, status)
 
-### Catatan Implementasi
-
-**Arsitektur Auth — Fortify + Livewire (Gabungan):**
-
-- Fortify tetap dipakai untuk infrastruktur keamanan (token reset password, dll)
-- Livewire handle tampilan + logic bisnis (login, audit trail, cek status akun)
-- Keputusan ini diambil agar kontrol penuh atas logic login tanpa reinvent the wheel untuk keamanan
-
-**Hal-hal teknis penting:**
-
-- `Fortify::ignoreRoutes()` harus dipanggil di method `register()`, BUKAN `boot()` — karena Fortify mendaftarkan routes di `boot()`, jadi harus di-ignore sebelum itu
-- Livewire Volt component disimpan sebagai `.blade.php` (bukan `.wire.php`) — ekstensi `.wire.php` hanya konvensi penulisan di dokumen ini
-- `@fluxAppearance` adalah directive yang benar untuk Flux versi ini, BUKAN `@fluxStyles`
-- Method `latest()` tidak bekerja untuk model `AuditTrail` via tinker karena tidak ada kolom `updated_at` — gunakan `::count()` atau lihat langsung di DBeaver
-- Layout auth ada di `resources/views/components/layouts/auth.blade.php`
-- MCP GitHub aktif di Claude Desktop via @github/github-mcp-server — Claude bisa baca file repo langsung tanpa copas manual
-
-**Yang sengaja ditunda:**
-
-- Link "Lupa password?" di halaman login sementara pakai `href="#"` — akan diisi dengan `route('password.request')` saat modul 1.2 selesai
-
-**Data Super Admin (dibuat via tinker):**
-
-- Nama: `Ridho`
-- Email: `mhdreedho@gmail.com`
-- Password: `admin`
-- Status: `aktif`
-- ID: `1`
-
 ---
 
 ## 1.2 Lupa Password
@@ -123,8 +95,8 @@ email, token, created_at
 **Files:**
 
 ```
-resources/views/livewire/auth/forgot-password.wire.php
-resources/views/livewire/auth/reset-password.wire.php
+resources/views/livewire/auth/forgot-password.blade.php
+resources/views/livewire/auth/reset-password.blade.php
 app/Notifications/ResetPasswordNotification.php
 ```
 
@@ -137,16 +109,18 @@ GET  /reset-password/{token}   → form reset password baru
 POST /reset-password           → proses reset password
 ```
 
+**Middleware:** `guest` untuk semua route lupa password
+
 **Business Rules:**
 
-- Token expired: 60 menit
-- 1 email = 1 token aktif (token lama di-invalidate saat request baru)
-- Email tidak terdaftar → tampil pesan sukses palsu (alasan keamanan, jangan konfirmasi email terdaftar/tidak)
+- Token expired: 60 menit (config `auth.passwords.users.expire`)
+- 1 email = 1 token aktif (token lama di-invalidate saat request baru — default PasswordBroker)
+- Email tidak terdaftar → tampil pesan sukses palsu (keamanan: jangan konfirmasi email terdaftar/tidak)
 
 **Edge Cases:**
 
-- Token sudah expired → redirect ke forgot password dengan pesan error
-- Token sudah dipakai → redirect ke forgot password dengan pesan error
+- Token sudah expired → redirect ke forgot-password + pesan error
+- Token sudah dipakai → redirect ke forgot-password + pesan error
 
 ---
 
@@ -155,7 +129,7 @@ POST /reset-password           → proses reset password
 **Files:**
 
 ```
-resources/views/livewire/profile/change-password.wire.php
+resources/views/livewire/profile/change-password.blade.php
 ```
 
 **Business Rules:**
@@ -179,11 +153,11 @@ resources/views/livewire/profile/change-password.wire.php
 **Tabel (otomatis dari Spatie):**
 
 ```
-roles                    → id, name, guard_name, created_at, updated_at
-permissions              → id, name, guard_name, created_at, updated_at
-model_has_roles          → role_id, model_type, model_id
-role_has_permissions     → permission_id, role_id
-model_has_permissions    → permission_id, model_type, model_id
+roles                 → id, name, guard_name, created_at, updated_at
+permissions           → id, name, guard_name, created_at, updated_at
+model_has_roles       → role_id, model_type, model_id
+role_has_permissions  → permission_id, role_id
+model_has_permissions → permission_id, model_type, model_id
 ```
 
 **Tambahan kolom di tabel `roles`:**
@@ -196,9 +170,9 @@ is_default (boolean, default false) → untuk tandai 6 role default
 
 ```
 app/Models/Role.php (extend Spatie Role)
-resources/views/livewire/settings/roles/index.wire.php
-resources/views/livewire/settings/roles/form.wire.php
-resources/views/livewire/settings/roles/permissions.wire.php
+resources/views/livewire/settings/roles/index.blade.php
+resources/views/livewire/settings/roles/form.blade.php
+resources/views/livewire/settings/roles/permissions.blade.php
 database/seeders/RoleSeeder.php
 ```
 
@@ -223,9 +197,14 @@ database/seeders/RoleSeeder.php
 **Permission Default (di-seed):**
 Format: `{modul}.{aksi}` — contoh: `proyek.view`, `proyek.create`, `proyek.edit`, `proyek.delete`, `proyek.approve`
 
-**Hak Akses:**
+**Hak Akses:** Kelola role & permission: Super Admin only
 
-- Kelola role & permission: Super Admin only
+**Permission:**
+
+```
+role.view, role.create, role.edit, role.delete
+permission.view, permission.assign
+```
 
 ---
 
@@ -248,19 +227,21 @@ audit_trails
 ├── created_at
 ```
 
+**Catatan:** Tidak ada kolom `updated_at` — audit trail tidak pernah diupdate.
+
 **Files:**
 
 ```
-app/Models/AuditTrail.php
-app/Services/AuditTrailService.php
-app/Observers/AuditObserver.php (attach ke semua model utama)
-resources/views/livewire/settings/audit-trail/index.wire.php
+app/Models/AuditTrail.php               ← sudah dibuat di modul 1.1
+app/Services/AuditTrailService.php      ← sudah dibuat di modul 1.1
+app/Observers/AuditObserver.php         ← dibuat di modul ini
+resources/views/livewire/settings/audit-trail/index.blade.php
 ```
 
 **Business Rules:**
 
 - Semua aksi CRUD di semua modul otomatis dicatat via Observer
-- Login/Logout dicatat manual di AuthController
+- Login/Logout dicatat manual via AuditTrailService
 - Kolom `perubahan` hanya diisi untuk aksi `update` (before & after per field)
 - Read only — tidak ada delete audit trail
 
@@ -295,10 +276,10 @@ kotas
 app/Models/Provinsi.php
 app/Models/Kota.php
 database/seeders/ProvinsiKotaSeeder.php (data awal 38 provinsi Indonesia)
-resources/views/livewire/master/provinsi/index.wire.php
-resources/views/livewire/master/provinsi/form.wire.php
-resources/views/livewire/master/kota/index.wire.php
-resources/views/livewire/master/kota/form.wire.php
+resources/views/livewire/master/provinsi/index.blade.php
+resources/views/livewire/master/provinsi/form.blade.php
+resources/views/livewire/master/kota/index.blade.php
+resources/views/livewire/master/kota/form.blade.php
 ```
 
 **Business Rules:**
@@ -331,8 +312,8 @@ jenis_kontaks
 ```
 app/Models/JenisKontak.php
 database/seeders/JenisKontakSeeder.php
-resources/views/livewire/master/jenis-kontak/index.wire.php
-resources/views/livewire/master/jenis-kontak/form.wire.php
+resources/views/livewire/master/jenis-kontak/index.blade.php
+resources/views/livewire/master/jenis-kontak/form.blade.php
 ```
 
 **8 Default (di-seed, `is_default = true`):**
@@ -371,13 +352,11 @@ banks
 ```
 app/Models/Bank.php
 database/seeders/BankSeeder.php (bank-bank umum Indonesia)
-resources/views/livewire/master/bank/index.wire.php
-resources/views/livewire/master/bank/form.wire.php
+resources/views/livewire/master/bank/index.blade.php
+resources/views/livewire/master/bank/form.blade.php
 ```
 
-**Business Rules:**
-
-- Bank yang sudah dipakai di Master Rekening → tidak bisa dihapus
+**Business Rules:** Bank yang sudah dipakai di Master Rekening → tidak bisa dihapus
 
 **Permission:**
 
@@ -406,7 +385,7 @@ rekenings
 
 ```
 app/Models/Rekening.php
-resources/views/livewire/components/rekening-form.wire.php (reusable component)
+resources/views/livewire/components/rekening-form.blade.php (reusable component)
 ```
 
 **Business Rules:**
@@ -437,45 +416,11 @@ klasifikasi_items
 app/Models/KlasifikasiKategori.php
 app/Models/KlasifikasiItem.php
 database/seeders/KlasifikasiInternalSeeder.php
-resources/views/livewire/master/klasifikasi/index.wire.php
-resources/views/livewire/master/klasifikasi/form.wire.php
+resources/views/livewire/master/klasifikasi/index.blade.php
+resources/views/livewire/master/klasifikasi/form.blade.php
 ```
 
-**Default Kategori & Item (di-seed):**
-
-```
-Pekerjaan Sipil
-├── Pekerjaan Persiapan, Pekerjaan Tanah, Pekerjaan Pondasi
-├── Pekerjaan Beton, Pekerjaan Besi & Baja
-├── Pekerjaan Pasangan & Plesteran, Pekerjaan Atap
-├── Pekerjaan Lantai, Pekerjaan Dinding & Partisi
-├── Pekerjaan Pintu & Jendela, Pekerjaan Finishing
-
-Pekerjaan Mekanikal & Elektrikal
-├── Pekerjaan Listrik, Pekerjaan Plumbing
-├── Pekerjaan AC & Ventilasi, Pekerjaan Sanitasi
-
-Pekerjaan Luar
-├── Pekerjaan Jalan & Parkir, Pekerjaan Drainase
-├── Pekerjaan Taman & Lansekap, Pekerjaan Pagar & Gerbang
-
-Pekerjaan Preventif & K3
-├── Keselamatan Kerja (K3), Proteksi & Perlindungan
-├── Pengujian & Quality Control
-
-Tenaga Kerja
-├── Mandor, Tukang, Pekerja Harian
-
-Pengadaan Material
-├── Material Bangunan, Material Mekanikal, Material Elektrikal
-
-Subkontraktor
-├── Subkon Sipil, Subkon Mekanikal, Subkon Elektrikal
-
-Biaya Proyek Lainnya
-├── Perizinan & Administrasi, Transportasi & Mobilisasi
-├── Asuransi & Jaminan, Biaya Tak Terduga
-```
+**Default Kategori & Item (di-seed):** Lihat SISKO-analisis.md section 5.11
 
 **Business Rules:**
 
@@ -542,20 +487,16 @@ korporasis
 
 ```
 app/Models/Korporasi.php
-resources/views/livewire/settings/korporasi/edit.wire.php
+resources/views/livewire/settings/korporasi/edit.blade.php
 ```
 
 **Business Rules:**
 
 - Hanya 1 data korporasi (tidak bisa tambah atau hapus)
 - Hanya Super Admin yang bisa edit
-- Logo: format JPG/PNG, max size tertentu
+- Logo: format JPG/PNG
 
-**Permission:**
-
-```
-korporasi.view, korporasi.edit
-```
+**Permission:** `korporasi.view, korporasi.edit`
 
 ---
 
@@ -569,33 +510,22 @@ perusahaans
 ├── deleted_at, timestamps
 ```
 
-**Jenis Dokumen Default (di-seed sebagai referensi):**
-
-```
-AKTA, SKPP, BPJSTK, NPWP, SPT, KSWP, KTPDIR, NPWPDIR,
-SKDU, KTA, SBU, OSS RBA, SKK, KTPSKK, NPWPSKK
-```
-
 **Files:**
 
 ```
 app/Models/Perusahaan.php
-resources/views/livewire/master/perusahaan/index.wire.php
-resources/views/livewire/master/perusahaan/form.wire.php
-resources/views/livewire/master/perusahaan/show.wire.php
+resources/views/livewire/master/perusahaan/index.blade.php
+resources/views/livewire/master/perusahaan/form.blade.php
+resources/views/livewire/master/perusahaan/show.blade.php
 ```
 
 **Business Rules:**
 
 - Perusahaan yang sudah dipakai di Proyek → tidak bisa dihapus
 - Dokumen: bisa multiple entry, tiap entry bisa multiple file
-- Format file: PDF, JPG, PNG
+- Jenis dokumen default (seed): AKTA, SKPP, BPJSTK, NPWP, SPT, KSWP, KTPDIR, NPWPDIR, SKDU, KTA, SBU, OSS RBA, SKK, KTPSKK, NPWPSKK
 
-**Permission:**
-
-```
-perusahaan.view, perusahaan.create, perusahaan.edit, perusahaan.delete
-```
+**Permission:** `perusahaan.view, perusahaan.create, perusahaan.edit, perusahaan.delete`
 
 ---
 
@@ -610,7 +540,7 @@ pemberi_kerjas
 ├── telepon (nullable), email (nullable)
 ├── deleted_at, timestamps
 
-pemberi_kerja_pics (kontak PIC)
+pemberi_kerja_pics
 ├── id, pemberi_kerja_id, nama_lengkap, jabatan
 ├── deleted_at, timestamps
 ```
@@ -620,9 +550,9 @@ pemberi_kerja_pics (kontak PIC)
 ```
 app/Models/PemberiKerja.php
 app/Models/PemberiKerjaPic.php
-resources/views/livewire/master/pemberi-kerja/index.wire.php
-resources/views/livewire/master/pemberi-kerja/form.wire.php
-resources/views/livewire/master/pemberi-kerja/show.wire.php
+resources/views/livewire/master/pemberi-kerja/index.blade.php
+resources/views/livewire/master/pemberi-kerja/form.blade.php
+resources/views/livewire/master/pemberi-kerja/show.blade.php
 ```
 
 **Business Rules:**
@@ -630,11 +560,7 @@ resources/views/livewire/master/pemberi-kerja/show.wire.php
 - Pemberi Kerja yang sudah dipakai di Proyek → tidak bisa dihapus
 - PIC bisa punya multiple kontak (via tabel kontaks polymorphic)
 
-**Permission:**
-
-```
-pemberi-kerja.view, pemberi-kerja.create, pemberi-kerja.edit, pemberi-kerja.delete
-```
+**Permission:** `pemberi-kerja.view, pemberi-kerja.create, pemberi-kerja.edit, pemberi-kerja.delete`
 
 ---
 
@@ -660,9 +586,9 @@ vendor_pics
 ```
 app/Models/Vendor.php
 app/Models/VendorPic.php
-resources/views/livewire/master/vendor/index.wire.php
-resources/views/livewire/master/vendor/form.wire.php
-resources/views/livewire/master/vendor/show.wire.php
+resources/views/livewire/master/vendor/index.blade.php
+resources/views/livewire/master/vendor/form.blade.php
+resources/views/livewire/master/vendor/show.blade.php
 ```
 
 **Business Rules:**
@@ -670,11 +596,7 @@ resources/views/livewire/master/vendor/show.wire.php
 - Vendor yang sudah dipakai di PR → tidak bisa dihapus
 - Jenis vendor bisa multiple (satu vendor bisa supplier sekaligus subkon)
 
-**Permission:**
-
-```
-vendor.view, vendor.create, vendor.edit, vendor.delete
-```
+**Permission:** `vendor.view, vendor.create, vendor.edit, vendor.delete`
 
 ---
 
@@ -694,16 +616,12 @@ investors
 
 ```
 app/Models/Investor.php
-resources/views/livewire/master/investor/index.wire.php
-resources/views/livewire/master/investor/form.wire.php
-resources/views/livewire/master/investor/show.wire.php
+resources/views/livewire/master/investor/index.blade.php
+resources/views/livewire/master/investor/form.blade.php
+resources/views/livewire/master/investor/show.blade.php
 ```
 
-**Permission:**
-
-```
-investor.view, investor.create, investor.edit, investor.delete
-```
+**Permission:** `investor.view, investor.create, investor.edit, investor.delete`
 
 ---
 
@@ -735,24 +653,24 @@ profil_users
 
 ```
 app/Models/ProfilUser.php
-resources/views/livewire/users/profil/index.wire.php
-resources/views/livewire/users/profil/form.wire.php
-resources/views/livewire/users/profil/show.wire.php
+resources/views/livewire/users/profil/index.blade.php
+resources/views/livewire/users/profil/form.blade.php
+resources/views/livewire/users/profil/show.blade.php
 ```
 
 **Business Rules:**
 
 - 1 Profil User → maksimal 1 Akun User
 - Nonaktifkan profil → otomatis nonaktifkan akun terkait
-- Profil yang sudah terhubung ke data lain (investor referral, assign proyek, dll) → tidak bisa dihapus
+- Profil yang sudah terhubung ke data lain → tidak bisa dihapus
 
 **Hak Akses:**
 
 ```
-Super Admin        → lihat semua, buat, edit semua profil
-Dirut              → lihat semua
-Role lain          → lihat profil di proyek ter-assign saja
-Pemilik profil     → edit profil sendiri
+Super Admin    → lihat semua, buat, edit semua profil
+Dirut          → lihat semua
+Role lain      → lihat profil di proyek ter-assign saja
+Pemilik profil → edit profil sendiri
 ```
 
 **Permission:**
@@ -778,8 +696,8 @@ Tambahan kolom:
 **Files:**
 
 ```
-resources/views/livewire/users/akun/form.wire.php
-resources/views/livewire/users/akun/reset-password.wire.php
+resources/views/livewire/users/akun/form.blade.php
+resources/views/livewire/users/akun/reset-password.blade.php
 app/Services/AkunUserService.php
 ```
 
@@ -822,7 +740,7 @@ proyeks
 ├── approved_by (FK ke users, nullable), approved_at (nullable)
 ├── deleted_at, timestamps
 
-proyek_tim (assign tim)
+proyek_tim
 ├── id, proyek_id, user_id, role_id
 ├── assigned_by (FK ke users)
 ├── assigned_at, deleted_at, timestamps
@@ -842,19 +760,17 @@ draft → aktif → suspended → aktif
 app/Models/Proyek.php
 app/Models/ProyekTim.php
 app/Services/ProyekService.php
-resources/views/livewire/proyek/index.wire.php
-resources/views/livewire/proyek/create.wire.php      (inisiasi)
-resources/views/livewire/proyek/edit.wire.php         (pelengkapan)
-resources/views/livewire/proyek/show.wire.php
-resources/views/livewire/proyek/status.wire.php       (ubah status)
-resources/views/livewire/proyek/tim.wire.php          (assign tim)
+resources/views/livewire/proyek/index.blade.php
+resources/views/livewire/proyek/create.blade.php
+resources/views/livewire/proyek/edit.blade.php
+resources/views/livewire/proyek/show.blade.php
+resources/views/livewire/proyek/status.blade.php
+resources/views/livewire/proyek/tim.blade.php
 ```
 
 **Business Rules:**
 
-- Inisiasi & Pelengkapan: Dirut, Sekretaris
 - Approve (Draft → Aktif): Dirut only → data proyek terkunci
-- Proyek Aktif ke atas → data proyek tidak bisa diedit
 - Proyek Suspended → semua aktivitas terkunci sampai kembali Aktif
 - Proyek Finish → masih bisa input pemasukan, pengeluaran terkunci
 - Proyek Closed → semua data terkunci total
@@ -892,32 +808,30 @@ proyek.assign-tim, proyek.upload-bast
 raps
 ├── id, korporasi_id, proyek_id (FK)
 ├── status (draft/pending/approved/rejected)
-├── submitted_by (FK ke users, nullable), submitted_at (nullable)
-├── approved_by (FK ke users, nullable), approved_at (nullable)
-├── rejected_by (FK ke users, nullable), rejected_at (nullable)
+├── submitted_by (FK), submitted_at
+├── approved_by (FK), approved_at
+├── rejected_by (FK), rejected_at
 ├── catatan_reject (nullable)
 ├── deleted_at, timestamps
 
-rap_kategoris (hierarki unlimited level)
+rap_kategoris
 ├── id, korporasi_id, rap_id (FK)
-├── parent_id (FK self-referential, nullable → null = level 1)
-├── nama, urutan
-├── deleted_at, timestamps
+├── parent_id (self-referential, nullable → null = level 1)
+├── nama, urutan, deleted_at, timestamps
 
 rap_items
-├── id, korporasi_id, rap_id (FK), kategori_id (FK ke rap_kategoris)
+├── id, korporasi_id, rap_id (FK), kategori_id (FK)
 ├── nama, satuan, volume (decimal), harga_satuan (decimal)
 ├── total (decimal, computed: volume × harga_satuan)
 ├── klasifikasi_item_id (FK ke klasifikasi_items)
-├── urutan
-├── deleted_at, timestamps
+├── urutan, deleted_at, timestamps
 ```
 
 **Status Flow:**
 
 ```
 draft → pending → approved (terkunci total)
-               → rejected → draft (bisa edit & submit ulang)
+               → rejected → draft
 ```
 
 **Files:**
@@ -927,25 +841,24 @@ app/Models/Rap.php
 app/Models/RapKategori.php
 app/Models/RapItem.php
 app/Services/RapService.php
-resources/views/livewire/proyek/rap/index.wire.php
-resources/views/livewire/proyek/rap/form.wire.php     (hierarki builder)
-resources/views/livewire/proyek/rap/approve.wire.php
+resources/views/livewire/proyek/rap/index.blade.php
+resources/views/livewire/proyek/rap/form.blade.php
+resources/views/livewire/proyek/rap/approve.blade.php
 ```
 
 **Business Rules:**
 
 - RAP hanya bisa diinput setelah proyek Aktif
-- Operasional (PR, Progress, dll) hanya bisa dimulai setelah RAP Approved
+- Operasional hanya bisa dimulai setelah RAP Approved
 - Hierarki kategori unlimited level (recursive)
 - Setiap item wajib di-mapping ke Klasifikasi Internal
-- Total otomatis kalkulasi ke atas sampai total RAP
-- RAP Approved → terkunci total, tidak ada yang bisa edit
+- RAP Approved → terkunci total
 
 **Hak Akses Lihat:**
 
 ```
-Super Admin, Dirut, Sekretaris, Dir Ops ter-assign → lihat semua field
-Admin, Pengawas ter-assign → lihat item & bobot saja (tanpa harga)
+Super Admin, Dirut, Sekretaris, Dir Ops ter-assign → semua field
+Admin, Pengawas ter-assign → item & bobot saja (tanpa harga)
 ```
 
 **Permission:**
@@ -971,7 +884,7 @@ addendums
 ├── dokumen_path (nullable)
 ├── deleted_at, timestamps
 
-addendum_rap_items (perubahan item RAP)
+addendum_rap_items
 ├── id, addendum_id, rap_item_id (FK, nullable)
 ├── aksi (tambah/ubah/hapus)
 ├── data_baru (jsonb, nullable)
@@ -983,23 +896,17 @@ addendum_rap_items (perubahan item RAP)
 ```
 app/Models/Addendum.php
 app/Models/AddendumRapItem.php
-resources/views/livewire/proyek/addendum/index.wire.php
-resources/views/livewire/proyek/addendum/form.wire.php
+resources/views/livewire/proyek/addendum/index.blade.php
+resources/views/livewire/proyek/addendum/form.blade.php
 ```
 
 **Business Rules:**
 
-- Addendum hanya dibuat saat proyek status Aktif
-- Tidak perlu approval
-- Nilai kontrak di proyek otomatis update setelah addendum disimpan
-- Perubahan RAP: input item yang berubah saja (bukan full RAP ulang)
+- Hanya dibuat saat proyek Aktif, tidak perlu approval
+- Nilai kontrak proyek otomatis update setelah addendum disimpan
 - Terkunci jika proyek Closed
 
-**Permission:**
-
-```
-addendum.view, addendum.create, addendum.edit, addendum.delete
-```
+**Permission:** `addendum.view, addendum.create, addendum.edit, addendum.delete`
 
 ---
 
@@ -1012,27 +919,15 @@ addendum.view, addendum.create, addendum.edit, addendum.delete
 ```
 progres_lapangans
 ├── id, korporasi_id, proyek_id (FK), rap_item_id (FK)
-├── tanggal
-├── progres_fisik (decimal, 0-100) → input manual
-├── catatan (nullable)
+├── tanggal, progres_fisik (decimal, 0-100), catatan (nullable)
 ├── status (draft/submitted)
-├── submitted_by (FK ke users), submitted_at
-├── reviewed_by (FK ke users, nullable), reviewed_at (nullable)
-├── catatan_review (nullable)
-├── is_reviewed (boolean, default false)
+├── submitted_by (FK), submitted_at
+├── reviewed_by (FK, nullable), reviewed_at (nullable)
+├── catatan_review (nullable), is_reviewed (boolean, default false)
 ├── deleted_at, timestamps
 
 progres_fotos
-├── id, progres_lapangan_id
-├── path, nama_file, ukuran
-├── timestamps
-```
-
-**Status Flow:**
-
-```
-draft → submitted
-reviewed (flag is_reviewed = true) → terkunci total
+├── id, progres_lapangan_id, path, nama_file, ukuran, timestamps
 ```
 
 **Files:**
@@ -1040,24 +935,18 @@ reviewed (flag is_reviewed = true) → terkunci total
 ```
 app/Models/ProgresLapangan.php
 app/Models/ProgressFoto.php
-resources/views/livewire/proyek/progres/index.wire.php
-resources/views/livewire/proyek/progres/form.wire.php
-resources/views/livewire/proyek/progres/review.wire.php
+resources/views/livewire/proyek/progres/index.blade.php
+resources/views/livewire/proyek/progres/form.blade.php
+resources/views/livewire/proyek/progres/review.blade.php
 ```
 
 **Business Rules:**
 
-- Input per item RAP
-- Foto wajib minimal 1 per entry progress
-- Budget terpakai (%) → otomatis dari realisasi pengeluaran vs RAP (bukan input manual)
-- Indikator on-track/tertinggal → perbandingan progres fisik vs budget terpakai
+- Foto wajib minimal 1 per entry
+- Budget terpakai (%) → otomatis dari realisasi pengeluaran vs RAP
 - Setelah direview → terkunci total
 
-**Permission:**
-
-```
-progres.view, progres.create, progres.review
-```
+**Permission:** `progres.view, progres.create, progres.review`
 
 ---
 
@@ -1067,40 +956,29 @@ progres.view, progres.create, progres.review
 
 ```
 purchase_requests
-├── id, korporasi_id
-├── tipe (proyek/korporasi)
-├── proyek_id (FK, nullable → null jika korporasi)
-├── nomor_pr (auto-generate)
-├── tanggal
+├── id, korporasi_id, tipe (proyek/korporasi)
+├── proyek_id (FK, nullable), nomor_pr (auto-generate), tanggal
 ├── keterangan (nullable)
 ├── status (draft/pending/approved/rejected/done/cancelled)
-├── submitted_by (FK ke users), submitted_at
-├── approved_by (FK ke users, nullable), approved_at (nullable)
-├── rejected_by (FK ke users, nullable), rejected_at (nullable)
-├── catatan_reject (nullable)
-├── cancelled_by (FK ke users, nullable), cancelled_at (nullable)
+├── submitted_by (FK), submitted_at
+├── approved_by (FK, nullable), approved_at (nullable)
+├── rejected_by (FK, nullable), rejected_at (nullable), catatan_reject (nullable)
+├── cancelled_by (FK, nullable), cancelled_at (nullable)
 ├── deleted_at, timestamps
 
 pr_items
 ├── id, purchase_request_id
 ├── nama_item, satuan, volume (decimal), harga_satuan (decimal)
-├── total (decimal, computed)
-├── vendor_id (FK ke vendors, nullable)
-├── keterangan (nullable)
-├── deleted_at, timestamps
+├── total (decimal, computed), vendor_id (FK, nullable)
+├── keterangan (nullable), deleted_at, timestamps
 
 pr_penerimaan_barangs
-├── id, purchase_request_id
-├── tanggal_terima
-├── catatan (nullable)
-├── is_reviewed (boolean, default false)
-├── reviewed_by (FK ke users, nullable), reviewed_at (nullable)
-├── catatan_review (nullable)
-├── timestamps
+├── id, purchase_request_id, tanggal_terima, catatan (nullable)
+├── is_reviewed (boolean), reviewed_by (FK, nullable), reviewed_at (nullable)
+├── catatan_review (nullable), timestamps
 
 pr_penerimaan_files
-├── id, pr_penerimaan_barang_id
-├── path, nama_file, timestamps
+├── id, pr_penerimaan_barang_id, path, nama_file, timestamps
 ```
 
 **Status Flow:**
@@ -1118,18 +996,16 @@ app/Models/PurchaseRequest.php
 app/Models/PrItem.php
 app/Models/PrPenerimaanBarang.php
 app/Services/PurchaseRequestService.php
-resources/views/livewire/pr/index.wire.php
-resources/views/livewire/pr/form.wire.php
-resources/views/livewire/pr/approve.wire.php
-resources/views/livewire/pr/penerimaan.wire.php
+resources/views/livewire/pr/index.blade.php
+resources/views/livewire/pr/form.blade.php
+resources/views/livewire/pr/approve.blade.php
+resources/views/livewire/pr/penerimaan.blade.php
 ```
 
 **Business Rules:**
 
-- Multi item dalam 1 PR
-- PR yang ditolak → revisi dibuat sebagai entry baru (entry lama tetap sebagai record)
-- PR Cancelled → final, tidak bisa direaktivasi
-- Approval proyek → Dirut & Dir Ops proyek terkait (siapa duluan approve, selesai)
+- PR ditolak → revisi = entry baru (entry lama tetap sebagai record)
+- Approval proyek → Dirut & Dir Ops proyek terkait (siapa duluan, selesai)
 - Approval korporasi → Dirut only
 
 **Permission:**
@@ -1147,16 +1023,11 @@ pr.cancel, pr.edit, pr.delete, pr.penerimaan, pr.penerimaan-review
 
 ```
 petty_cashes
-├── id, korporasi_id, user_id (FK, pemilik/inputer)
-├── tipe (proyek/korporasi)
-├── proyek_id (FK, nullable)
-├── tanggal, keterangan
-├── nominal (decimal)
-├── status (draft/submitted)
-├── is_reviewed (boolean, default false)
-├── reviewed_by (FK ke users, nullable), reviewed_at (nullable)
-├── catatan_review (nullable)
-├── deleted_at, timestamps
+├── id, korporasi_id, user_id (FK), tipe (proyek/korporasi)
+├── proyek_id (FK, nullable), tanggal, keterangan, nominal (decimal)
+├── status (draft/submitted), is_reviewed (boolean)
+├── reviewed_by (FK, nullable), reviewed_at (nullable)
+├── catatan_review (nullable), deleted_at, timestamps
 
 petty_cash_files
 ├── id, petty_cash_id, path, nama_file, timestamps
@@ -1168,32 +1039,23 @@ petty_cash_limits
 ├── timestamps
 ```
 
-**Status Flow:**
-
-```
-draft → submitted
-reviewed (is_reviewed = true) → terkunci total
-```
-
 **Files:**
 
 ```
 app/Models/PettyCash.php
 app/Models/PettyCashLimit.php
 app/Services/PettyCashService.php
-resources/views/livewire/petty-cash/index.wire.php
-resources/views/livewire/petty-cash/form.wire.php
-resources/views/livewire/petty-cash/review.wire.php
-resources/views/livewire/petty-cash/limit.wire.php
+resources/views/livewire/petty-cash/index.blade.php
+resources/views/livewire/petty-cash/form.blade.php
+resources/views/livewire/petty-cash/review.blade.php
+resources/views/livewire/petty-cash/limit.blade.php
 ```
 
 **Business Rules:**
 
 - Tidak perlu approval, langsung catat
-- Cek limit sebelum input: max_saldo & max_minus (0 = unlimited)
-- Saldo bisa minus (ada batas max minus per user)
-- Role custom: jika petty cash tidak diaktifkan → menu tidak tampil sama sekali
-- Notifikasi otomatis setelah submit
+- Cek limit sebelum input (0 = unlimited)
+- Role custom: jika petty cash tidak diaktifkan → menu tidak tampil
 
 **Permission:**
 
@@ -1210,81 +1072,47 @@ petty-cash.set-limit, petty-cash.edit, petty-cash.delete
 
 ```
 petty_cash_topups
-├── id, korporasi_id, user_id (FK, requester)
+├── id, korporasi_id, user_id (FK)
 ├── nominal (decimal), keterangan (nullable)
 ├── status (pending/approved/rejected)
-├── approved_by (FK ke users, nullable), approved_at (nullable)
-├── rejected_by (FK ke users, nullable), rejected_at (nullable)
-├── catatan (nullable)
-├── timestamps
-```
-
-**Status Flow:**
-
-```
-pending → approved → saldo bertambah otomatis
-        → rejected
-pending (bisa dibatalkan oleh requester & Super Admin)
-approved → terkunci, tidak bisa diedit/dihapus
+├── approved_by (FK, nullable), approved_at (nullable)
+├── rejected_by (FK, nullable), rejected_at (nullable)
+├── catatan (nullable), timestamps
 ```
 
 **Files:**
 
 ```
 app/Models/PettyCashTopup.php
-resources/views/livewire/petty-cash/topup/index.wire.php
-resources/views/livewire/petty-cash/topup/form.wire.php
-resources/views/livewire/petty-cash/topup/approve.wire.php
+resources/views/livewire/petty-cash/topup/index.blade.php
+resources/views/livewire/petty-cash/topup/form.blade.php
+resources/views/livewire/petty-cash/topup/approve.blade.php
 ```
 
 **Business Rules:**
 
-- Request: semua role yang punya fitur petty cash
-- Approval: Dirut (default, tidak bisa dihapus), bisa ditambah Super Admin
-- Siapa duluan approve → selesai
 - Saldo bertambah setelah di-approve (bukan saat request)
+- Siapa duluan approve → selesai
 
-**Permission:**
-
-```
-topup.view, topup.create, topup.approve, topup.reject, topup.cancel
-```
+**Permission:** `topup.view, topup.create, topup.approve, topup.reject, topup.cancel`
 
 ---
 
 ## 6.5 Buku Kas Petty Cash
 
-**Tabel:** Tidak ada tabel terpisah — data diambil dari:
-
-- `petty_cash_topups` (untuk mutasi masuk)
-- `petty_cashes` (untuk mutasi keluar)
+**Tabel:** Tidak ada tabel terpisah — data dari `petty_cash_topups` + `petty_cashes`
 
 **Files:**
 
 ```
 app/Services/BukuKasService.php
-resources/views/livewire/petty-cash/buku-kas/index.wire.php
+resources/views/livewire/petty-cash/buku-kas/index.blade.php
 ```
 
-**Business Rules:**
-
-- Read only, tidak bisa diedit atau dihapus
-- Terbentuk otomatis dari transaksi
-- Formula saldo:
-    ```
-    Saldo Awal
-    + Top-up (setiap top-up approved)
-    - Pengeluaran (setiap petty cash submitted)
-    = Saldo Akhir (realtime)
-    ```
-- Tiap baris: tanggal, jenis, keterangan, nominal, saldo berjalan
-
-**Hak Akses:**
+**Formula:**
 
 ```
-Super Admin, Dirut → semua user
-Dir Ops            → user di proyek ter-assign
-Pemilik            → milik sendiri
+Saldo Awal + Top-up (approved) - Pengeluaran (submitted) = Saldo Akhir
 ```
 
 ---
@@ -1297,41 +1125,19 @@ Pemilik            → milik sendiri
 pemasukan_proyeks
 ├── id, korporasi_id, proyek_id (FK)
 ├── tipe (uang_muka/termin/pembayaran_akhir/uang_retensi/pembayaran_penuh)
-├── tanggal, nominal (decimal)
-├── keterangan (nullable)
-├── status (draft/submitted)
-├── is_reviewed (boolean, default false)
-├── reviewed_by (FK ke users, nullable), reviewed_at (nullable)
+├── tanggal, nominal (decimal), keterangan (nullable)
+├── status (draft/submitted), is_reviewed (boolean)
+├── reviewed_by (FK, nullable), reviewed_at (nullable)
 ├── catatan_review (nullable)
-├── submitted_by (FK ke users), submitted_at
+├── submitted_by (FK), submitted_at
 ├── deleted_at, timestamps
 
 pemasukan_files
 ├── id, pemasukan_proyek_id, path, nama_file, timestamps
 ```
 
-**5 Tipe Pemasukan:**
-
-```
-1. Uang Muka
-2. Termin
-3. Pembayaran Akhir
-4. Uang Retensi
-5. Pembayaran Penuh (pengadaan barang/jasa tanpa retensi)
-```
-
-**Status Flow:**
-
-```
-draft → submitted
-reviewed (is_reviewed = true) → terkunci total
-```
-
 **Business Rules:**
 
-- Semua tipe opsional (tidak harus semua ada di setiap proyek)
-- Nilai dicatat sebagai nominal
-- Sistem otomatis hitung sisa dari nilai kontrak
 - Proyek Finish → masih bisa input pemasukan
 - Proyek Closed → tidak bisa input
 
@@ -1351,35 +1157,19 @@ pemasukan.delete, pemasukan.review
 **Files:**
 
 ```
-resources/views/livewire/dashboard/super-admin.wire.php
-resources/views/livewire/dashboard/dirut.wire.php
-resources/views/livewire/dashboard/dir-ops.wire.php
-resources/views/livewire/dashboard/sekretaris.wire.php
-resources/views/livewire/dashboard/admin.wire.php
-resources/views/livewire/dashboard/pengawas.wire.php
+resources/views/livewire/dashboard/super-admin.blade.php
+resources/views/livewire/dashboard/dirut.blade.php
+resources/views/livewire/dashboard/dir-ops.blade.php
+resources/views/livewire/dashboard/sekretaris.blade.php
+resources/views/livewire/dashboard/admin.blade.php
+resources/views/livewire/dashboard/pengawas.blade.php
 app/Services/DashboardService.php
 ```
-
-**Widget per Role:**
-
-| Widget                                  | Super Admin | Dirut | Dir Ops | Sekretaris | Admin | Pengawas |
-| --------------------------------------- | :---------: | :---: | :-----: | :--------: | :---: | :------: |
-| Info sistem                             |     ✅      |   -   |    -    |     -      |   -   |    -     |
-| Ringkasan keuangan korporasi            |     ✅      |  ✅   |    -    |     -      |   -   |    -     |
-| Daftar proyek aktif + status + progress |     ✅      |  ✅   |  ✅\*   |     ✅     | ✅\*  |   ✅\*   |
-| PR pending approval                     |     ✅      |  ✅   |  ✅\*   |     -      |   -   |    -     |
-| Top-up pending approval                 |     ✅      |  ✅   |    -    |     -      |   -   |    -     |
-| RAP belum di-approve                    |     ✅      |   -   |    -    |     ✅     |   -   |    -     |
-| PR & Petty Cash baru diinput            |     ✅      |   -   |    -    |     ✅     | ✅\*  |   ✅\*   |
-| Progress belum direview                 |     ✅      |   -   |  ✅\*   |     -      |   -   |    -     |
-| Progress input terakhir                 |     ✅      |   -   |    -    |     -      |   -   |   ✅\*   |
-
-\*) hanya proyek ter-assign
 
 **Business Rules:**
 
 - Dashboard bisa filter per periode
-- Dashboard Admin & Pengawas → tidak menampilkan nilai keuangan apapun
+- Dashboard Admin & Pengawas → tidak menampilkan nilai keuangan
 - Tidak ada kustomisasi widget (V1)
 
 ---
@@ -1389,16 +1179,12 @@ app/Services/DashboardService.php
 **Files:**
 
 ```
-resources/views/livewire/laporan/proyek/keuangan.wire.php
-resources/views/livewire/laporan/proyek/progress.wire.php
-resources/views/livewire/laporan/proyek/pengeluaran.wire.php
-resources/views/livewire/laporan/proyek/pemasukan.wire.php
+resources/views/livewire/laporan/proyek/keuangan.blade.php
+resources/views/livewire/laporan/proyek/progress.blade.php
+resources/views/livewire/laporan/proyek/pengeluaran.blade.php
+resources/views/livewire/laporan/proyek/pemasukan.blade.php
 app/Services/LaporanProyekService.php
 ```
-
-**Filter default:** periode, CV/PT, status proyek, Pemberi Kerja
-
-**Export:** PDF (V1), Excel menyusul
 
 **Permission:**
 
@@ -1414,28 +1200,19 @@ laporan.proyek-pengeluaran, laporan.proyek-pemasukan
 **Files:**
 
 ```
-resources/views/livewire/laporan/korporasi/laba-rugi-cv.wire.php
-resources/views/livewire/laporan/korporasi/laba-rugi-korporasi.wire.php
-resources/views/livewire/laporan/korporasi/pengeluaran-korporasi.wire.php
-resources/views/livewire/laporan/korporasi/arus-kas.wire.php
+resources/views/livewire/laporan/korporasi/laba-rugi-cv.blade.php
+resources/views/livewire/laporan/korporasi/laba-rugi-korporasi.blade.php
+resources/views/livewire/laporan/korporasi/pengeluaran-korporasi.blade.php
+resources/views/livewire/laporan/korporasi/arus-kas.blade.php
 app/Services/LaporanKorporasiService.php
 ```
 
 **Formula Laba:**
 
 ```
-Laba Kotor per Proyek    = Pemasukan Proyek - Pengeluaran Proyek
-Laba Kotor per CV/PT     = Total Laba Kotor semua proyek CV/PT
-Laba Bersih Korporasi    = Total Laba Kotor semua CV/PT - Pengeluaran Korporasi
-```
-
-**Filter Arus Kas:**
-
-```
-Periode (dari - sampai)
-Jenis transaksi (Semua/Pemasukan/Pengeluaran)
-Sumber (Semua/per Proyek/Korporasi)
-CV/PT
+Laba Kotor per Proyek  = Pemasukan Proyek - Pengeluaran Proyek
+Laba Kotor per CV/PT   = Total Laba Kotor semua proyek CV/PT
+Laba Bersih Korporasi  = Total Laba Kotor semua CV/PT - Pengeluaran Korporasi
 ```
 
 **Permission:**
@@ -1452,17 +1229,13 @@ laporan.pengeluaran-korporasi, laporan.arus-kas
 **Files:**
 
 ```
-resources/views/livewire/laporan/operasional/rekap-proyek.wire.php
-resources/views/livewire/laporan/operasional/rekap-pr.wire.php
-resources/views/livewire/laporan/operasional/rekap-petty-cash.wire.php
+resources/views/livewire/laporan/operasional/rekap-proyek.blade.php
+resources/views/livewire/laporan/operasional/rekap-pr.blade.php
+resources/views/livewire/laporan/operasional/rekap-petty-cash.blade.php
 app/Services/LaporanOperasionalService.php
 ```
 
-**Permission:**
-
-```
-laporan.rekap-proyek, laporan.rekap-pr, laporan.rekap-petty-cash
-```
+**Permission:** `laporan.rekap-proyek, laporan.rekap-pr, laporan.rekap-petty-cash`
 
 ---
 
@@ -1472,25 +1245,18 @@ laporan.rekap-proyek, laporan.rekap-pr, laporan.rekap-petty-cash
 
 ```
 notifikasis
-├── id, korporasi_id, user_id (FK, penerima)
+├── id, korporasi_id, user_id (FK)
 ├── judul, pesan (text)
 ├── tipe (pr_submit/pr_approve/pr_reject/topup_request/dll)
-├── data (jsonb, nullable) → link ke record terkait
-├── is_read (boolean, default false)
-├── read_at (nullable)
+├── data (jsonb, nullable)
+├── is_read (boolean, default false), read_at (nullable)
 ├── timestamps
-```
 
-**Tabel Setelan Notifikasi:**
-
-```
 notifikasi_setelans
-├── id, korporasi_id
-├── event (nama event)
+├── id, korporasi_id, event
 ├── penerima_roles (jsonb array of role_id)
 ├── penerima_users (jsonb array of user_id, nullable)
-├── is_active (boolean)
-├── timestamps
+├── is_active (boolean), timestamps
 ```
 
 **Files:**
@@ -1500,38 +1266,16 @@ app/Models/Notifikasi.php
 app/Models/NotifikasiSetelan.php
 app/Services/NotifikasiService.php
 database/seeders/NotifikasiSetelanSeeder.php
-resources/views/livewire/notifikasi/bell.wire.php     (bell icon + badge)
-resources/views/livewire/notifikasi/list.wire.php     (dropdown list)
-resources/views/livewire/settings/notifikasi/index.wire.php (setelan)
-```
-
-**Default Events (di-seed):**
-
-```
-pr_submit          → Dirut, Dir Ops proyek terkait
-pr_approve         → Pembuat PR
-pr_reject          → Pembuat PR
-pr_cancel          → Pembuat PR
-petty_cash_proyek  → Dirut, Dir Ops proyek terkait
-petty_cash_korpor  → Dirut, Sekretaris
-topup_request      → Dirut
-topup_approve      → Requester
-topup_reject       → Requester
-progres_input      → Dir Ops, Dirut proyek terkait
-rap_submit         → Dirut
-rap_approve        → Pembuat RAP
-rap_reject         → Pembuat RAP
-status_proyek      → Tim proyek terkait
-assign_tim         → User yang di-assign
+resources/views/livewire/notifikasi/bell.blade.php
+resources/views/livewire/notifikasi/list.blade.php
+resources/views/livewire/settings/notifikasi/index.blade.php
 ```
 
 **Business Rules:**
 
-- Notifikasi ditampilkan di dalam sistem (bell icon) dengan badge counter angka
-- User bisa tandai sudah dibaca
-- Tidak bisa hapus notifikasi
+- Bell icon + badge counter angka
+- User bisa tandai sudah dibaca, tidak bisa hapus
 - Fully configurable oleh Super Admin
-- Tidak mempengaruhi alur sistem apapun
 - V1: dalam sistem saja. Next: kirim via WhatsApp
 
 **Permission:**
@@ -1566,12 +1310,12 @@ notifikasi.settings (Super Admin only)
 ## Naming Convention
 
 ```
-Models         → PascalCase singular   (ProyekTim, RapItem)
-Tables         → snake_case plural     (proyek_tims, rap_items)
-Livewire       → kebab-case path       (proyek/rap/form.wire.php)
-Permissions    → kebab-case.aksi       (proyek.view, rap.approve)
-Services       → PascalCase + Service  (ProyekService, RapService)
-Seeders        → PascalCase + Seeder   (RoleSeeder, KlasifikasiSeeder)
+Models      → PascalCase singular   (ProyekTim, RapItem)
+Tables      → snake_case plural     (proyek_tims, rap_items)
+Livewire    → kebab-case path       (proyek/rap/form.blade.php)
+Permissions → kebab-case.aksi       (proyek.view, rap.approve)
+Services    → PascalCase + Service  (ProyekService, RapService)
+Seeders     → PascalCase + Seeder   (RoleSeeder, KlasifikasiSeeder)
 ```
 
 ## Service Layer
@@ -1582,4 +1326,4 @@ Seeders        → PascalCase + Seeder   (RoleSeeder, KlasifikasiSeeder)
 
 ---
 
-_— SISKO-Development-detail.md v1.1 —_
+_— SISKO-Development-detail.md v1.2 —_

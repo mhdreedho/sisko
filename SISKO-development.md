@@ -2,13 +2,16 @@
 
 ## Panduan Coding & Build Order
 
-_Versi 1.1 — Maret 2026_
+_Versi 1.2 — Maret 2026_
 
 ---
 
 ## 1. Tentang Dokumen Ini
 
-Dokumen ini adalah **panduan coding SISKO** — bukan dokumen bisnis. Isinya adalah peta kerja teknis yang menentukan urutan coding berdasarkan dependency antar modul.
+Dokumen ini adalah **panduan coding SISKO** — bukan dokumen bisnis, bukan catatan progres.
+Isinya adalah peta kerja teknis yang menentukan urutan coding berdasarkan dependency antar modul.
+
+> **Status progres terkini & catatan implementasi** → lihat `SISKO-progress.md` (di lokal WSL, baca via MCP filesystem di awal setiap sesi).
 
 **Prinsip utama:**
 
@@ -18,6 +21,7 @@ Dokumen ini adalah **panduan coding SISKO** — bukan dokumen bisnis. Isinya ada
 - Mind Map per role lain (Dirut, Dir Ops, dll) berfungsi sebagai **checklist testing**, bukan panduan coding
 
 **Stack teknologi:**
+
 | Teknologi | Versi |
 |-----------|-------|
 | Laravel | 12.x |
@@ -33,8 +37,6 @@ Dokumen ini adalah **panduan coding SISKO** — bukan dokumen bisnis. Isinya ada
 
 ## 2. Metode Kerja
 
-Cara kita bekerja bersama saat coding SISKO:
-
 - **Learning by doing** — langsung coding, bertahap sangat kecil per langkah
 - **Satu command, jalankan, cek hasilnya, baru lanjut** — tidak loncat-loncat
 - **Setiap ada error, selesaikan dulu** sebelum lanjut ke langkah berikutnya
@@ -45,21 +47,26 @@ Cara kita bekerja bersama saat coding SISKO:
 
 ## 2a. Tools & Environment
 
-| Tool           | Keterangan                                        |
-| -------------- | ------------------------------------------------- | --- |
-| WSL Ubuntu     | Environment utama untuk semua command             |
-| VS Code        | Editor (Windows, dibuka dari WSL dengan "code .") |
-| DBeaver        | Database GUI untuk PostgreSQL                     |
-| Claude Code    | AI coding assistant di terminal WSL               |
-| Claude Desktop | AI assistant + MCP untuk sesi chat                |
-| MCP GitHub     | @github/github-mcp-server (PAT)                   |
-| GitHub         | username: mhdreedho, repo: mhdreedho/sisko        |     |
+| Tool | Keterangan |
+|------|------------|
+| WSL Ubuntu | Environment utama untuk semua command |
+| VS Code | Editor (Windows, dibuka dari WSL dengan "code .") |
+| DBeaver | Database GUI untuk PostgreSQL |
+| Claude Code | AI coding assistant di terminal WSL |
+| Claude Desktop | AI assistant + MCP untuk sesi chat |
+| MCP GitHub | @github/github-mcp-server (PAT) |
+| MCP Filesystem | @modelcontextprotocol/server-filesystem (WSL) |
+| GitHub | username: mhdreedho, repo: mhdreedho/sisko |
+
+**Lokasi config MCP:**
+`C:\Users\mhdreedho\AppData\Roaming\Claude\claude_desktop_config.json`
+
+**Path WSL untuk MCP filesystem:**
+`\\wsl.localhost\Ubuntu\home\mhdreedho\projects\sisko\`
 
 ---
 
 ## 3. Alur Coding per Modul
-
-Setiap modul dikerjakan dengan urutan berikut:
 
 ```
 1. Buat migration & model
@@ -75,11 +82,12 @@ Setiap modul dikerjakan dengan urutan berikut:
 ## 4. Mind Map Super Admin — Build Order & Dependency Map
 
 > Urutan ini adalah urutan coding. Modul di atas harus selesai sebelum modul di bawahnya bisa dikerjakan.
+> **Status terkini tiap modul** → lihat `SISKO-progress.md`.
 
 ```
 SISKO
 │
-├── 0. FONDASI ✅ SELESAI
+├── 0. FONDASI
 │   ├── Laravel 12
 │   ├── Livewire 4
 │   ├── Flux UI Pro 2.13
@@ -87,16 +95,16 @@ SISKO
 │   └── PostgreSQL 16
 │
 ├── 1. AUTH & AKSES
-│   ├── Login & Logout ✅ SELESAI
-│   ├── Lupa Password (via email)
-│   ├── Ganti Password
-│   ├── Role Management
+│   ├── 1.1 Login & Logout
+│   ├── 1.2 Lupa Password (via email)
+│   ├── 1.3 Ganti Password
+│   ├── 1.4 Role Management
 │   │   ├── Role Default (6 role, tidak bisa dihapus)
 │   │   └── Role Custom (CRUD via UI)
-│   ├── Permission Management
+│   ├── 1.5 Permission Management
 │   │   ├── Permission default (tidak bisa dihapus)
 │   │   └── Permission extra (bisa ditambah/hapus Super Admin)
-│   └── Audit Trail
+│   └── 1.6 Audit Trail
 │
 ├── 2. MASTER DATA
 │   ├── Provinsi & Kota
@@ -194,19 +202,13 @@ Flux UI Pro sidebar mendukung maksimal **2 level** secara native:
 - **Level 1** → `flux:sidebar.group` (dengan icon & heading)
 - **Level 2** → `flux:sidebar.item` (menu item)
 
-Untuk konten yang membutuhkan **level 3**, gunakan:
-
-- **Tab** di dalam halaman konten
-- **Sub-header** di area konten
+Untuk konten yang membutuhkan **level 3**, gunakan Tab atau Sub-header di area konten.
 
 ---
 
 ## 6. Checklist Testing per Role
 
-> Setelah semua modul Super Admin selesai, lakukan testing menggunakan checklist berikut per role.
-
 ### 6.1 Direktur Utama
-
 - [ ] Bisa lihat semua proyek
 - [ ] Bisa approve proyek (Draft → Aktif)
 - [ ] Bisa approve RAP
@@ -217,7 +219,6 @@ Untuk konten yang membutuhkan **level 3**, gunakan:
 - [ ] Dashboard menampilkan widget yang sesuai
 
 ### 6.2 Direktur Operasional
-
 - [ ] Hanya bisa lihat proyek yang di-assign
 - [ ] Bisa approve PR proyek ter-assign
 - [ ] Bisa review progress lapangan
@@ -226,7 +227,6 @@ Untuk konten yang membutuhkan **level 3**, gunakan:
 - [ ] Dashboard tidak menampilkan nilai keuangan
 
 ### 6.3 Sekretaris
-
 - [ ] Bisa lihat semua proyek
 - [ ] Bisa input data proyek (inisiasi & pelengkapan)
 - [ ] Bisa assign tim proyek
@@ -235,7 +235,6 @@ Untuk konten yang membutuhkan **level 3**, gunakan:
 - [ ] Dashboard sesuai hak akses
 
 ### 6.4 Admin
-
 - [ ] Hanya bisa lihat proyek yang di-assign
 - [ ] Bisa buat PR
 - [ ] Bisa input petty cash
@@ -244,7 +243,6 @@ Untuk konten yang membutuhkan **level 3**, gunakan:
 - [ ] Dashboard tidak menampilkan nilai keuangan
 
 ### 6.5 Pengawas Lapangan
-
 - [ ] Hanya bisa lihat proyek yang di-assign
 - [ ] Bisa input progress lapangan + foto
 - [ ] Bisa buat PR
@@ -254,4 +252,4 @@ Untuk konten yang membutuhkan **level 3**, gunakan:
 
 ---
 
-_— SISKO-development.md v1.1 —_
+_— SISKO-development.md v1.2 —_
