@@ -96,6 +96,7 @@ auth   → semua halaman yang butuh login
 - `@fluxAppearance` adalah directive yang benar untuk Flux versi ini, BUKAN `@fluxStyles`
 - Method `latest()` tidak bekerja untuk model `AuditTrail` via tinker karena tidak ada kolom `updated_at` — gunakan `::count()` atau lihat langsung di DBeaver
 - Layout auth ada di `resources/views/components/layouts/auth.blade.php`
+- MCP GitHub aktif di Claude Desktop via @github/github-mcp-server — Claude bisa baca file repo langsung tanpa copas manual
 
 **Yang sengaja ditunda:**
 

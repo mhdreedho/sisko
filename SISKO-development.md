@@ -43,6 +43,20 @@ Cara kita bekerja bersama saat coding SISKO:
 
 ---
 
+## 2a. Tools & Environment
+
+| Tool           | Keterangan                                                    |
+| -------------- | ------------------------------------------------------------- |
+| WSL Ubuntu     | Environment utama untuk semua command                         |
+| VS Code        | Editor (Windows, dibuka dari WSL: "code .")                   |
+| DBeaver        | Database GUI untuk PostgreSQL                                 |
+| Claude Code    | AI coding assistant di terminal WSL                           |
+| Claude Desktop | AI assistant + MCP untuk sesi chat                            |
+| MCP GitHub     | @github/github-mcp-server (PAT di claude_desktop_config.json) |
+| GitHub         | Repo: https://github.com/mhdreedho/sisko                      |
+
+---
+
 ## 3. Alur Coding per Modul
 
 Setiap modul dikerjakan dengan urutan berikut:
